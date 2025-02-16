@@ -8,7 +8,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from openpyxl import Workbook
-keywords = ['Сегодня', 'Вчера', "недел", "феврал"]
+pages = ['', 'p=2', 'p=3']
 # Настройки Chrome
 options = Options()
 options.add_argument("--disable-gpu")
@@ -29,48 +29,46 @@ def get_chrome_service():
         executable_path=r"C:\\Users\\Acer\\Desktop\\PaketSPaketami\\parser\\chromedriver.exe",
         log_path=os.devnull
     )
-
-# Открытие браузера
-driver = webdriver.Chrome(service=get_chrome_service(), options=options)
-driver.get("https://www.avito.ru/himki/kvartiry/prodam-ASgBAgICAUSSA8YQ?context=H4sIAAAAAAAA_wEkANv_YToxOntzOjg6ImZyb21QYWdlIjtzOjg6InZlcnRpY2FsIjt938025iQAAAA&f=ASgBAQECBUSSA8YQ5geMUpC~DZauNay~DaTHNcDBDbr9NwJAyggkgFn~WOzBDTSGzzmEzzmCzzkBRcaaDBh7ImZyb20iOjAsInRvIjoxMDAwMDAwMH0&p=3")
-
-# Ожидание загрузки элементов
-WebDriverWait(driver, 10).until(
-    EC.presence_of_element_located((By.CLASS_NAME, "iva-item-root-Se7z4"))
-)
-
-# Поиск всех элементов
-items = driver.find_elements(By.CLASS_NAME, "iva-item-root-Se7z4")
-main = driver.find_elements(By.CLASS_NAME, "iva-item-titleStep-zichc")
-price = driver.find_elements(By.CLASS_NAME, "price-root-IfnJI")
-date = driver.find_elements(By.CLASS_NAME, "iva-item-dateInfoStep-qcDJA")
-geo = driver.find_elements(By.CLASS_NAME, "geo-root-NrkbV")
-links = [i.find_element(By.TAG_NAME, "a").get_attribute("href") for i in items]
-
 # Создание Excel-файла
 wb = Workbook()
 ws = wb.active
 ws.append(["Адрес", "Город", "Кол-во комнат", "Площадь (м²)", "Этаж", "Цена (₽)", "Цена за м² (₽)", "Дата", "Ссылка"])
+for i in range(3):
+        
+    # Открытие браузера
+    driver = webdriver.Chrome(service=get_chrome_service(), options=options)
+    driver.get("https://www.avito.ru/himki/kvartiry/prodam-ASgBAgICAUSSA8YQ?context=H4sIAAAAAAAA_wEkANv_YToxOntzOjg6ImZyb21QYWdlIjtzOjg6InZlcnRpY2FsIjt938025iQAAAA&f=ASgBAQECBUSSA8YQ5geMUpC~DZauNay~DaTHNcDBDbr9NwJAyggkgFn~WOzBDTSGzzmEzzmCzzkBRcaaDBh7ImZyb20iOjAsInRvIjoxMDAwMDAwMH0&"+pages[i])
 
-# Запись данных в Excel
-for i in range(len(items) - 1):
-    try:
-        if 'Сегодня' in date[i].text or 'Вчера' in date[i].text or "недел" in date[i].text:
-            rooms, area, floor = main[i].text.split(", ")[:3]
-            address = geo[i].text
-            city = "Химки"  # Указать город
-            price_full = price[i].text.split('₽')[0]
-            price_per_m2 = price[i].text.split('₽')[1]
-            link = links[i]
-            ws.append([address, city, rooms, area, floor, price_full, price_per_m2, date[i].text, link])
-    except Exception as e:
-        print(f"Ошибка обработки данных: {e}")
+    # Ожидание загрузки элементов
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CLASS_NAME, "iva-item-root-Se7z4"))
+    )
 
+    # Поиск всех элементов
+    items = driver.find_elements(By.CLASS_NAME, "iva-item-root-Se7z4")
+    main = driver.find_elements(By.CLASS_NAME, "iva-item-titleStep-zichc")
+    price = driver.find_elements(By.CLASS_NAME, "price-root-IfnJI")
+    date = driver.find_elements(By.CLASS_NAME, "iva-item-dateInfoStep-qcDJA")
+    geo = driver.find_elements(By.CLASS_NAME, "geo-root-NrkbV")
+    links = [i.find_element(By.TAG_NAME, "a").get_attribute("href") for i in items]
+
+
+    # Запись данных в Excel
+    for i in range(len(items) - 1):
+        try:
+            if 'Сегодня' in date[i].text or 'Вчера' in date[i].text or "недел" in date[i].text:
+                rooms, area, floor = main[i].text.split(", ")[:3]
+                address = geo[i].text
+                city = "Химки"  # Указать город
+                price_full = price[i].text.split('₽')[0]
+                price_per_m2 = price[i].text.split('₽')[1]
+                link = links[i]
+                ws.append([address, city, rooms, area, floor, price_full, price_per_m2, date[i].text, link])
+        except Exception as e:
+            print(f"Ошибка обработки данных: {e}")
+    driver.quit()
 # Сохранение файла в той же директории, что и скрипт
 file_path = os.path.join(os.path.dirname(__file__), "avito_data3.xlsx")
 wb.save(file_path)
-
-# Закрытие браузера
-driver.quit()
 
 print(f"Данные сохранены в {file_path}")
