@@ -8,7 +8,9 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from openpyxl import Workbook
-pages = ['', 'p=2', 'p=3']
+
+pages = list(range(2))
+saved = []
 # Настройки Chrome
 options = Options()
 options.add_argument("--disable-gpu")
@@ -23,26 +25,38 @@ options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
 options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
 options.add_experimental_option("useAutomationExtension", False)
 
+count = 1
+
 # Настройка сервиса ChromeDriver
 def get_chrome_service():
     return Service(
         executable_path=r"C:\\Users\\Acer\\Desktop\\PaketSPaketami\\parser\\chromedriver.exe",
         log_path=os.devnull
     )
+
 # Создание Excel-файла
 wb = Workbook()
 ws = wb.active
-ws.append(["Адрес", "Город", "Кол-во комнат", "Площадь (м²)", "Этаж", "Цена (₽)", "Цена за м² (₽)", "Дата", "Ссылка"])
-for i in range(3):
+ws.append(["№", "Адрес", "Город", "Кол-во комнат", "Площадь (м²)", "Этаж", "Цена (₽)", "Цена за м² (₽)", "Дата", "Ссылка"])
+
+for page in pages:
         
     # Открытие браузера
     driver = webdriver.Chrome(service=get_chrome_service(), options=options)
-    driver.get("https://www.avito.ru/himki/kvartiry/prodam-ASgBAgICAUSSA8YQ?context=H4sIAAAAAAAA_wEkANv_YToxOntzOjg6ImZyb21QYWdlIjtzOjg6InZlcnRpY2FsIjt938025iQAAAA&f=ASgBAQECBUSSA8YQ5geMUpC~DZauNay~DaTHNcDBDbr9NwJAyggkgFn~WOzBDTSGzzmEzzmCzzkBRcaaDBh7ImZyb20iOjAsInRvIjoxMDAwMDAwMH0&"+pages[i])
+    driver.get("https://www.avito.ru/himki/kvartiry/prodam/do-15-mln-rubley-ASgBAgECAUSSA8YQAUXGmgwYeyJmcm9tIjowLCJ0byI6MTUwMDAwMDB9?context=H4sIAAAAAAAA_wEtANL_YToxOntzOjg6ImZyb21QYWdlIjtzOjE2OiJzZWFyY2hGb3JtV2lkZ2V0Ijt9F_yIfi0AAAA&f=ASgBAgECAkSSA8YQygiCWQFFxpoMGHsiZnJvbSI6MCwidG8iOjE1MDAwMDAwfQ&p="+str(page + 1))
 
     # Ожидание загрузки элементов
     WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.CLASS_NAME, "iva-item-root-Se7z4"))
     )
+
+    # Удаление элементов с классом items-witcher-FjJnZ
+    driver.execute_script("""
+        var elements = document.getElementsByClassName('items-witcher-FjJnZ');
+        while (elements.length > 0) {
+            elements[0].parentNode.removeChild(elements[0]);
+        }
+    """)
 
     # Поиск всех элементов
     items = driver.find_elements(By.CLASS_NAME, "iva-item-root-Se7z4")
@@ -51,24 +65,26 @@ for i in range(3):
     date = driver.find_elements(By.CLASS_NAME, "iva-item-dateInfoStep-qcDJA")
     geo = driver.find_elements(By.CLASS_NAME, "geo-root-NrkbV")
     links = [i.find_element(By.TAG_NAME, "a").get_attribute("href") for i in items]
-
+    print(len(items))
 
     # Запись данных в Excel
-    for i in range(len(items) - 1):
-        try:
-            if 'Сегодня' in date[i].text or 'Вчера' in date[i].text or "недел" in date[i].text:
-                rooms, area, floor = main[i].text.split(", ")[:3]
-                address = geo[i].text
-                city = "Химки"  # Указать город
-                price_full = price[i].text.split('₽')[0]
-                price_per_m2 = price[i].text.split('₽')[1]
-                link = links[i]
-                ws.append([address, city, rooms, area, floor, price_full, price_per_m2, date[i].text, link])
-        except Exception as e:
-            print(f"Ошибка обработки данных: {e}")
+    for q in range(len(items) - 1):
+            if 'Сегодня' in date[q].text or 'Вчера' in date[q].text or "недел" in date[q].text or "час" in date[q].text or "дн" in date[q].text :
+                if price[q].text.split('₽')[1] not in saved:
+                    rooms, area, floor = main[q].text.split(", ")[:3]
+                    address = geo[q].text
+                    city = "Химки"  # Указать город
+                    price_full = price[q].text.split('₽')[0]
+                    price_per_m2 = price[q].text.split('₽')[1]
+                    link = links[q]
+                    ws.append([count, address, city, rooms, area, floor, price_full, price_per_m2, date[q].text, link])
+                    print(price_per_m2)
+                    count += 1
+                    saved.append(price[q].text.split('₽')[1])
     driver.quit()
+
 # Сохранение файла в той же директории, что и скрипт
-file_path = os.path.join(os.path.dirname(__file__), "avito_data3.xlsx")
+file_path = os.path.join(os.path.dirname(__file__), "test5.xlsx")
 wb.save(file_path)
 
 print(f"Данные сохранены в {file_path}")
