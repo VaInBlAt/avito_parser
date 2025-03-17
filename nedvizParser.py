@@ -1,17 +1,17 @@
-import time
-import random
 import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from openpyxl import Workbook
 
-pages = list(range(2))
+from cian import cian_check, get_chrome_service
+
+pages = list(range(3))
+cian_times = 15
 saved = []
-# Настройки Chrome
+avito_page = 'https://www.avito.ru/moskva/kvartiry/prodam/vtorichka-ASgBAgICAkSSA8YQ5geMUg?context=&f=ASgBAQECBESSA8YQ5geMUpC~DZauNcDBDbr9NwFAyggkglmAWQFFxpoMH3siZnJvbSI6MTAwMDAwMDAsInRvIjoyMDAwMDAwMH0&localPriority=0&metro=88'
+cian_page = 'https://www.cian.ru/cat.php?currency=2&deal_type=sale&engine_version=2&maxprice=20000000&metro%5B0%5D=94&minprice=10000000&object_type%5B0%5D=1&offer_type=flat&p=4&room1=1&room2=1'
+
 options = Options()
 options.add_argument("--disable-gpu")
 options.add_argument("--no-sandbox")
@@ -27,30 +27,20 @@ options.add_experimental_option("useAutomationExtension", False)
 
 count = 1
 
-# Настройка сервиса ChromeDriver
-def get_chrome_service():
-    return Service(
-        executable_path=r"C:\\Users\\Acer\\Desktop\\PaketSPaketami\\parser\\chromedriver.exe",
-        log_path=os.devnull
-    )
 
-# Создание Excel-файла
 wb = Workbook()
 ws = wb.active
-ws.append(["№", "Адрес", "Город", "Кол-во комнат", "Площадь (м²)", "Этаж", "Цена (₽)", "Цена за м² (₽)", "Дата", "Ссылка"])
+ws.append(["№", "Адрес", "Город", "Кол-во комнат", "Площадь (м²)", "Этаж", "Цена (₽)", "Цена за м² (₽)", "Дата", "Ссылка", "Циан"])
+
+cian_checked = cian_check(cian_times, cian_page)
 
 for page in pages:
-        
-    # Открытие браузера
+    dct = cian_checked
+    print(cian_checked)
+
     driver = webdriver.Chrome(service=get_chrome_service(), options=options)
-    driver.get("https://www.avito.ru/himki/kvartiry/prodam/do-15-mln-rubley-ASgBAgECAUSSA8YQAUXGmgwYeyJmcm9tIjowLCJ0byI6MTUwMDAwMDB9?context=H4sIAAAAAAAA_wEtANL_YToxOntzOjg6ImZyb21QYWdlIjtzOjE2OiJzZWFyY2hGb3JtV2lkZ2V0Ijt9F_yIfi0AAAA&f=ASgBAgECAkSSA8YQygiCWQFFxpoMGHsiZnJvbSI6MCwidG8iOjE1MDAwMDAwfQ&p="+str(page + 1))
+    driver.get(avito_page + "&p=" + str(page + 1))
 
-    # Ожидание загрузки элементов
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "iva-item-root-Se7z4"))
-    )
-
-    # Удаление элементов с классом items-witcher-FjJnZ
     driver.execute_script("""
         var elements = document.getElementsByClassName('items-witcher-FjJnZ');
         while (elements.length > 0) {
@@ -58,33 +48,39 @@ for page in pages:
         }
     """)
 
-    # Поиск всех элементов
+
     items = driver.find_elements(By.CLASS_NAME, "iva-item-root-Se7z4")
     main = driver.find_elements(By.CLASS_NAME, "iva-item-titleStep-zichc")
     price = driver.find_elements(By.CLASS_NAME, "price-root-IfnJI")
     date = driver.find_elements(By.CLASS_NAME, "iva-item-dateInfoStep-qcDJA")
     geo = driver.find_elements(By.CLASS_NAME, "geo-root-NrkbV")
-    links = [i.find_element(By.TAG_NAME, "a").get_attribute("href") for i in items]
-    print(len(items))
+    links = driver.find_elements("css selector", "[data-marker='item-title']")
+    print(len(main), len(price), len(date), len(geo), len(links), links[0].get_attribute('href'))
 
-    # Запись данных в Excel
-    for q in range(len(items) - 1):
-            if 'Сегодня' in date[q].text or 'Вчера' in date[q].text or "недел" in date[q].text or "час" in date[q].text or "дн" in date[q].text :
+    for q in range(len(main)):
+            if 'Сегодня' in date[q].text or 'Вчера' in date[q].text or "неделю" in date[q].text or "час" in date[q].text or "дн" in date[q].text :
                 if price[q].text.split('₽')[1] not in saved:
                     rooms, area, floor = main[q].text.split(", ")[:3]
                     address = geo[q].text
-                    city = "Химки"  # Указать город
+                    city = "Москва, Планерная"
                     price_full = price[q].text.split('₽')[0]
                     price_per_m2 = price[q].text.split('₽')[1]
-                    link = links[q]
-                    ws.append([count, address, city, rooms, area, floor, price_full, price_per_m2, date[q].text, link])
+                    link = links[q].get_attribute('href')
+                    cian = 'НЕТ'
+                    
+                    price_per_m2 = price_per_m2.replace(' ', '').replace('\n', '')
+                    print(price_per_m2)
+                    
+                    if price_per_m2.replace(' ', '').replace('\n', '') in dct:
+                        cian = dct[price_per_m2]
+                    ws.append([count, address, city, rooms, area, floor, price_full, price_per_m2.strip(), date[q].text, link, cian])
                     print(price_per_m2)
                     count += 1
                     saved.append(price[q].text.split('₽')[1])
     driver.quit()
 
-# Сохранение файла в той же директории, что и скрипт
-file_path = os.path.join(os.path.dirname(__file__), "test5.xlsx")
+
+file_path = os.path.join(os.path.dirname(__file__), "10-20 Москва, Планерная.xlsx")
 wb.save(file_path)
 
 print(f"Данные сохранены в {file_path}")
