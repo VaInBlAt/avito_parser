@@ -6,11 +6,14 @@ from openpyxl import Workbook
 
 from cian import cian_check, get_chrome_service
 
-pages = list(range(3))
+file_name = '10-20 Москва, Планерная'
+avito_pages = 3
 cian_times = 15
 saved = []
 avito_page = 'https://www.avito.ru/moskva/kvartiry/prodam/vtorichka-ASgBAgICAkSSA8YQ5geMUg?context=&f=ASgBAQECBESSA8YQ5geMUpC~DZauNcDBDbr9NwFAyggkglmAWQFFxpoMH3siZnJvbSI6MTAwMDAwMDAsInRvIjoyMDAwMDAwMH0&localPriority=0&metro=88'
 cian_page = 'https://www.cian.ru/cat.php?currency=2&deal_type=sale&engine_version=2&maxprice=20000000&metro%5B0%5D=94&minprice=10000000&object_type%5B0%5D=1&offer_type=flat&p=4&room1=1&room2=1'
+city = "Москва, Планерная"
+
 
 options = Options()
 options.add_argument("--disable-gpu")
@@ -25,16 +28,14 @@ options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
 options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
 options.add_experimental_option("useAutomationExtension", False)
 
-count = 1
-
-
 wb = Workbook()
 ws = wb.active
 ws.append(["№", "Адрес", "Город", "Кол-во комнат", "Площадь (м²)", "Этаж", "Цена (₽)", "Цена за м² (₽)", "Дата", "Ссылка", "Циан"])
 
 cian_checked = cian_check(cian_times, cian_page)
+count = 1
 
-for page in pages:
+for page in range(avito_pages):
     dct = cian_checked
     print(cian_checked)
 
@@ -62,7 +63,6 @@ for page in pages:
                 if price[q].text.split('₽')[1] not in saved:
                     rooms, area, floor = main[q].text.split(", ")[:3]
                     address = geo[q].text
-                    city = "Москва, Планерная"
                     price_full = price[q].text.split('₽')[0]
                     price_per_m2 = price[q].text.split('₽')[1]
                     link = links[q].get_attribute('href')
@@ -80,7 +80,7 @@ for page in pages:
     driver.quit()
 
 
-file_path = os.path.join(os.path.dirname(__file__), "10-20 Москва, Планерная.xlsx")
+file_path = os.path.join(os.path.dirname(__file__), file_name + '.xlsx')
 wb.save(file_path)
 
 print(f"Данные сохранены в {file_path}")
